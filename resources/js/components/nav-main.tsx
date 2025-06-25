@@ -31,9 +31,6 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
     const permissions: string[] = props.auth?.permissions || [];
     const roles: string[] = props.auth?.roles || [];
 
-    console.log('Roles:', roles);
-    console.log('Permissions:', permissions);
-
     const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({});
 
     const normalizePath = (path: string) => '/' + path.replace(/^\/+|\/+$/g, '');
