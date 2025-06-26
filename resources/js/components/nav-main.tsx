@@ -74,10 +74,18 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
         return filterMenuByPermissions(items);
     }, [items, permissions, roles]);
 
+    const getMenuKey = (item: any, parents: string[] = []) => {
+        return [...parents, item.title].join(' > ');
+    };
+
     const hasExactMatchingChild = (children: any[]): boolean => {
         return children?.some((child) => {
             const childPath = getPathname(child.href || '');
-            return currentPath === childPath || (child.children?.length && hasExactMatchingChild(child.children));
+
+            // cocokkan exact atau prefix match
+            const isMatch = currentPath === childPath || currentPath.startsWith(childPath + '/');
+
+            return isMatch || (child.children?.length && hasExactMatchingChild(child.children));
         });
     };
 
@@ -89,8 +97,9 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
                 const hasMatchChild = hasExactMatchingChild(item.children || []);
 
                 if (hasMatchChild) {
-                    [...parents, item.title].forEach((title) => {
-                        newOpenMenus[title] = true;
+                    [...parents, item.title].forEach((_, idx, arr) => {
+                        const key = getMenuKey({ title: arr[idx] }, arr.slice(0, idx));
+                        newOpenMenus[key] = true;
                     });
                 }
 
@@ -101,26 +110,27 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
         };
 
         traverse(filteredItems);
-        setOpenMenus(newOpenMenus); // Only once on load
+        setOpenMenus(newOpenMenus);
     }, [currentPath, filteredItems]);
 
-    const toggleMenu = (title: string) => {
+    const toggleMenu = (key: string) => {
         setOpenMenus((prev) => ({
             ...prev,
-            [title]: !prev[title],
+            [key]: !prev[key],
         }));
     };
 
-    const renderMenuItems = (menuItems: any[], level = 0) => {
+    const renderMenuItems = (menuItems: any[], level = 0, parents: string[] = []) => {
         return menuItems.map((item) => {
             const itemPath = getPathname(item.href || '');
             const isActive = currentPath === itemPath;
             const hasChildren = !!item.children?.length;
-            const isOpen = openMenus[item.title] || false;
+            const menuKey = getMenuKey(item, parents);
+            const isOpen = openMenus[menuKey] || false;
 
             return (
                 <SidebarMenuItem
-                    key={item.title}
+                    key={menuKey}
                     className={classNames({
                         'pl-1': level === 1,
                         'pl-2': level === 2,
@@ -135,7 +145,7 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
                             onClick={(e) => {
                                 if (hasChildren) {
                                     e.preventDefault();
-                                    toggleMenu(item.title);
+                                    toggleMenu(menuKey);
                                 }
                             }}
                         >
@@ -146,13 +156,15 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
                         </SidebarMenuButton>
 
                         {hasChildren && (
-                            <button onClick={() => toggleMenu(item.title)} className="ml-2 focus:outline-none">
+                            <button onClick={() => toggleMenu(menuKey)} className="ml-2 focus:outline-none">
                                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                             </button>
                         )}
                     </div>
 
-                    {hasChildren && isOpen && <SidebarMenu className="mt-1 ml-2">{renderMenuItems(item.children, level + 1)}</SidebarMenu>}
+                    {hasChildren && isOpen && (
+                        <SidebarMenu className="mt-1 ml-2">{renderMenuItems(item.children, level + 1, [...parents, item.title])}</SidebarMenu>
+                    )}
                 </SidebarMenuItem>
             );
         });
@@ -163,7 +175,7 @@ export const MainNavigation = ({ items = [] }: { items: any[] }) => {
             {filteredItems.map((group) => (
                 <SidebarGroup key={group.title} className="px-2">
                     <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
-                    <SidebarMenu>{renderMenuItems(group.children || [])}</SidebarMenu>
+                    <SidebarMenu>{renderMenuItems(group.children || [], 0, [group.title])}</SidebarMenu>
                 </SidebarGroup>
             ))}
         </>
